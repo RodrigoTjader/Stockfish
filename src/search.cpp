@@ -75,6 +75,9 @@ namespace {
   int FutilityMoveCounts[2][16]; // [improving][depth]
   int Reductions[2][2][64][64];  // [pv][improving][depth][moveNumber]
 
+  // Dynamic contempt lookup tables, initialized at startup
+  int DynamicContempt[1001]; // [bestValue]
+
   template <bool PvNode> Depth reduction(bool i, Depth d, int mn) {
     return Reductions[PvNode][i][std::min(d / ONE_PLY, 63)][std::min(mn, 63)] * ONE_PLY;
   }
@@ -168,6 +171,9 @@ void Search::init() {
       FutilityMoveCounts[0][d] = int(2.4 + 0.74 * pow(d, 1.78));
       FutilityMoveCounts[1][d] = int(5.0 + 1.00 * pow(d, 2.00));
   }
+
+  for (int bv = -500; bv <= 500; ++bv)
+      DynamicContempt[bv + 500] = int(std::round(48 * atan(float(bv) / 128)));
 }
 
 
@@ -349,7 +355,9 @@ void Thread::search() {
               ct =  Options["Contempt"] * PawnValueEg / 100; // From centipawns
 
               // Adjust contempt based on current bestValue (dynamic contempt)
-              ct += int(std::round(48 * atan(float(bestValue) / 128)));
+              ct += bestValue >  500 ? DynamicContempt[ 500] :
+                    bestValue < -500 ? DynamicContempt[-500] :
+                    DynamicContempt[bestValue + 500];
 
               Eval::Contempt = (us == WHITE ?  make_score(ct, ct / 2)
                                             : -make_score(ct, ct / 2));
