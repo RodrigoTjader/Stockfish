@@ -61,7 +61,21 @@ void TranspositionTable::resize(size_t mbSize) {
 
 void TranspositionTable::clear() {
 
-  std::memset(table, 0, clusterCount * sizeof(Cluster));
+  TimePoint start = now();
+  bool slow = false;
+  for (size_t i = 0; i < clusterCount / 1024; i++)
+  {
+      std::memset(&table[i * 1024], 0, 1024 * sizeof(Cluster));
+      TimePoint n = now();
+      if (n - start >= 5000)
+      {
+          sync_cout << "info string Clearing TT " << 100 * i / (clusterCount / 1024) << "%" << sync_endl;
+          start = n;
+	  slow = true;
+      }
+  }
+  if (slow)
+      sync_cout << "info string Clearing TT done" << sync_endl;
 }
 
 
